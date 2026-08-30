@@ -23,7 +23,7 @@
     "client-locale": "语言服务：zh/en 偏好、词典与切换",
     "client-modules": "客户端模块系统：bundle 编排与懒加载",
     "cordis": "Cordis 元框架：插件容器与依赖注入",
-    "dsh-l10n-zh": "中文汉化补全（本插件）",
+    "dsh-l10n-zh": "对 dsh Web UI 做部分汉化与注释（本插件）",
     "desktop-bridge": "桌面桥接：DSH Desktop 通知与状态",
     "mini-dialog": "迷你对话框：快速发起会话",
     "bash-local": "本地终端：本地子进程执行 shell 命令",
@@ -154,6 +154,7 @@
     "plugin-inventory": "插件清单：Loader 状态只读投影",
     "Agent 循环": "智能体循环：持续驱动任务执行",
     "终端": "终端工具：执行命令",
-    "网页搜索": "网页搜索工具"
+    "网页搜索": "网页搜索工具",
+    "l10n-zh": "对 dsh Web UI 做部分汉化与注释（本插件）"
   }
 }
