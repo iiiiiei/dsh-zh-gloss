@@ -1,0 +1,17 @@
+dsh-client-ui-agent-preset | settings.agentPreset | 值未译 | presetIdPlaceholder = my-agent
+dsh-client-ui-cordis | (动态NS) | 值未译 | panel.trigger = Cordis Plugin
+dsh-client-ui-cordis | (动态NS) | 值未译 | panel.runningCount = {count} running
+dsh-client-ui-cordis | (动态NS) | 值未译 | body.hostCode = Host
+dsh-client-ui-cordis | (动态NS) | 值未译 | body.clientCode = Client
+dsh-client-ui-model-selection | (动态NS) | 值未译 | effort.providerDefault = Default
+dsh-client-ui-reference | (动态NS) | 值未译 | candidate.session = Session
+dsh-client-ui-trajectory | (动态NS) | 值未译 | toolbar.duration = Duration
+dsh-client-ui-trajectory | (动态NS) | 值未译 | toolbar.useActualDuration = Use actual duration
+dsh-client-ui-trajectory | (动态NS) | 值未译 | toolbar.useEqualWidth = Use equal-width operations
+dsh-client-ui-trajectory | (动态NS) | 值未译 | toolbar.turns = Turns
+dsh-client-ui-trajectory | (动态NS) | 值未译 | toolbar.expandTurns = Expand turns
+dsh-client-ui-trajectory | (动态NS) | 值未译 | toolbar.collapseTurns = Collapse turns
+dsh-client-ui-trajectory | (动态NS) | 值未译 | toolbar.calls = Calls
+dsh-client-ui-trajectory | (动态NS) | 值未译 | toolbar.expandCalls = Expand calls
+dsh-client-ui-trajectory | (动态NS) | 值未译 | toolbar.collapseCalls = Collapse calls
+dsh-client-ui-workflow-run | (动态NS) | 值未译 | run.title = {name}

@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>SIM 启动中</title>
+<style>
+  body { font: 13px/1.5 -apple-system, sans-serif; margin: 16px; display: flex; gap: 16px; }
+  #app { flex: 1.2; border: 1px solid #ccc; padding: 12px; border-radius: 8px; }
+  #panel { flex: 1; font-family: ui-monospace, monospace; font-size: 11px; }
+  #sim-results { white-space: pre-wrap; border: 1px solid #ddd; padding: 8px; min-height: 200px; max-height: 46vh; overflow: auto; }
+  #sim-console { white-space: pre-wrap; border: 1px solid #eee; padding: 8px; max-height: 22vh; overflow: auto; color: #555; }
+  .toolbar button, .tabs span, .toolcard button { margin: 2px 4px; padding: 2px 8px; }
+  .pass { color: #070; } .fail { color: #c00; font-weight: bold; }
+  #churn, #scratch { border: 1px dashed #ddd; min-height: 20px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <h3>官方 Web UI 仿真（结构对齐 dsh-client-ui-*）</h3>
+
+  <div id="static-zone">
+    <div id="stable-zone">
+      <div class="toolbar">
+        <span data-t-ns="trajectory" data-t-key="toolbar.duration"></span>·
+        <span data-t-ns="trajectory" data-t-key="toolbar.turns"></span>·
+        <span data-t-ns="trajectory" data-t-key="toolbar.expandCalls"></span>·
+        <label><span data-t-ns="trajectory" data-t-key="toolbar.useActualDuration"></span><input type="checkbox"></label>
+      </div>
+      <div class="tabs">
+        <span class="tabTitle">System Prompt</span><span class="tabTitle">Raw Output</span><span class="tabTitle">Options</span><span class="tabTitle">Usage</span><span class="tabTitle">Timing</span><span class="tabTitle">Diff</span><span class="tabTitle">Summary</span>
+      </div>
+      <div class="conversation">
+        <div data-chat-flow-kind="user" id="userBubble"><span id="userText">Options</span> <button id="userBtn" title="System Prompt">Options</button></div>
+        <div class="compactionRow"><span id="compactionText">Compacted 12 history items (~3.4K tokens).</span></div>
+        <div class="slashMenu">
+          <div>compact — <span id="cmdDesc">Compact older conversation history</span></div>
+          <div>plan — <span>Enter or leave plan mode</span></div>
+          <div id="goalReceipt">Goal created</div>
+          <div id="permDesc">Write inside the workspace and permitted temporary directories; wider retries require approval.</div>
+        </div>
+        <pre><code id="codeEl">Options</code></pre>
+        <div id="ceEl" contenteditable="true">Tools</div>
+        <p id="plainPara">plain paragraph with Read inside, untouched expectation</p>
+      </div>
+    </div>
+    <div class="toolcards">
+      <button data-tool="read">Read</button>
+      <button data-tool="fetch">Fetch</button>
+      <button>Tool call</button>
+      <button id="tooltipBtn" title="Open image">🖼</button>
+    </div>
+  </div>
+
+  <div id="scratch"></div>
+  <div id="churn"></div>
+
+  <div id="settingsSim" style="margin-top:10px; border-top:1px dashed #bbb; padding-top:8px;">
+    <button id="btn-open-settings">打开设置仿真</button>
+    <button id="btn-close-settings">关闭设置仿真</button>
+    <div id="settingsHost"></div>
+  </div>
+</div>
+
+<div id="panel">
+  <div>
+    <button id="btn-rerun">重跑推演</button>
+    <button id="btn-uninstall">卸载插件</button>
+    <button id="btn-reinstall">重装插件</button>
+    <button id="btn-refetch">重拉词典</button>
+    <button id="btn-churn">跑一轮 churn</button>
+    <button id="btn-official-catchup">模拟官方补译</button>
+    <button id="btn-fault500">词典 500 故障</button>
+    <button id="btn-faultclear">清除故障</button>
+  </div>
+  <div id="sim-results"></div>
+  <div id="sim-console"></div>
+</div>
+
+<script>
+/* ═══════════ 1) 官方宿主环境仿真 ═══════════ */
+window.__pluginReg = null;
+window.__ModuleLoader__ = { load(reg) { window.__pluginReg = reg; } };
+
+// 官方 LocaleRuntime 行为仿真：register 抛错不变量、查找链、publish/subscribe
+const OFFICIAL_DICTS = {
+  trajectory: {
+    zh: {
+      "toolbar.duration": "Duration", "toolbar.turns": "Turns",
+      "toolbar.expandCalls": "Expand calls", "toolbar.useActualDuration": "Use actual duration",
+    },
+    en: {
+      "toolbar.duration": "Duration", "toolbar.turns": "Turns",
+      "toolbar.expandCalls": "Expand calls", "toolbar.useActualDuration": "Use actual duration",
+    },
+  },
+  common: { zh: { cancel: "取消" }, en: { cancel: "Cancel" } },
+  workspace: { zh: { "workspace.add": "添加工作区" }, en: { "workspace.add": "Add workspace" } },
+  "settings.locale": { zh: { "language.title": "语言" }, en: { "language.title": "Language" } },
+};
+let __active = "zh";
+const __listeners = new Set();
+const OFFICIAL_LOOKUP_IMPL = (ns, key) =>
+  OFFICIAL_DICTS[ns]?.[__active]?.[key] ?? OFFICIAL_DICTS[ns]?.en?.[key] ?? key;
+const locale = {
+  active: "zh",
+  lookup: OFFICIAL_LOOKUP_IMPL,
+  getLocale: () => ({ active: __active }),
+  register(ns, pair) {
+    for (const lang of ["zh", "en"]) {
+      if (OFFICIAL_DICTS[ns] && OFFICIAL_DICTS[ns][lang]) throw new Error(`register: ${ns}/${lang} 已存在`);
+    }
+    OFFICIAL_DICTS[ns] = pair;
+  },
+  publish() { [...__listeners].forEach((fn) => fn()); },
+  subscribe(fn) { __listeners.add(fn); return () => __listeners.delete(fn); },
+};
+
+// t() 渲染：data-t-ns/data-t-key 元素随 publish 重渲染（对齐 useSyncExternalStore）
+function renderAll() {
+  document.querySelectorAll("[data-t-ns]").forEach((el) => {
+    el.textContent = locale.lookup(el.getAttribute("data-t-ns"), el.getAttribute("data-t-key"));
+  });
+}
+__listeners.add(renderAll);
+renderAll();
+</script>
+
+<script src="/client.js"></script>
+
+<script>
+/* ═══════════ 2) cordis 运行器仿真 + 推演套件 ═══════════ */
+const resultsEl = document.getElementById("sim-results");
+const consoleEl = document.getElementById("sim-console");
+let passCount = 0, failCount = 0;
+const consoleErrors = [];
+window.__simErrors = consoleErrors;
+
+for (const level of ["log", "info", "warn", "error"]) {
+  const orig = console[level].bind(console);
+  console[level] = (...args) => {
+    const line = args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+    const div = document.createElement("div");
+    div.textContent = `[console.${level}] ${line}`;
+    consoleEl.appendChild(div);
+    if (level === "error") consoleErrors.push(line);
+    orig(...args);
+  };
+}
+window.addEventListener("error", (e) => {
+  consoleErrors.push(`window.onerror: ${e.message}`);
+  checkLine(false, "ERR", "window 异常", e.message);
+});
+
+function checkLine(pass, id, name, detail) {
+  if (pass) passCount++; else failCount++;
+  const div = document.createElement("div");
+  div.className = pass ? "pass" : "fail";
+  div.textContent = `[${pass ? "PASS" : "FAIL"}] ${id} · ${name}${detail ? " — " + detail : ""}`;
+  resultsEl.appendChild(div);
+  document.title = `SIM ${passCount}✓/${failCount}✗`;
+}
+function check(id, name, cond, detail) { checkLine(!!cond, id, name, typeof detail === "string" ? detail : JSON.stringify(detail)); }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function waitFor(fn, timeout = 3000, step = 40) {
+  const t0 = performance.now();
+  while (performance.now() - t0 < timeout) { try { if (fn()) return true; } catch {} await sleep(step); }
+  try { return !!fn(); } catch { return false; }
+}
+const $ = (id) => document.getElementById(id);
+
+/* ── cordis 运行器仿真 ── */
+let disposers = [];
+let face = null;
+const OFFICIAL_LOOKUP_REF = locale.lookup;
+const simLogger = {
+  info: (...a) => console.info("[dsh-l10n-zh]", ...a),
+  warn: (...a) => console.warn("[dsh-l10n-zh]", ...a),
+};
+function makeCtx() {
+  disposers = [];
+  return {
+    locale,
+    logger: simLogger,
+    effect(fn) { const d = fn(); if (typeof d === "function") disposers.push(d); return d; },
+  };
+}
+function install() {
+  const ctx = makeCtx();
+  face = window.__pluginReg.factory();
+  face.apply(ctx);
+  window.__sim = { face, locale, disposers, stats: () => face.__l10nTest.stats() };
+}
+function uninstall() {
+  while (disposers.length) disposers.pop()();
+  locale.publish(); // 官方语义：卸载后下一次渲染回到官方链
+}
+window.__simUninstall = uninstall;
+window.__simInstall = install;
+
+/* ── 场景控制 ── */
+async function post(path, body) {
+  const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
+  return res.json();
+}
+$("btn-refetch").onclick = () => face && face.__l10nTest.loadDicts();
+$("btn-uninstall").onclick = () => { uninstall(); checkLine(true, "MANUAL", "已卸载（结果面板记一条便于确认）", ""); };
+$("btn-reinstall").onclick = () => { install(); };
+$("btn-churn").onclick = () => churnOnce(10);
+$("btn-official-catchup").onclick = () => {
+  OFFICIAL_DICTS.trajectory.zh["toolbar.duration"] = "官方补译时长";
+  locale.publish();
+};
+$("btn-fault500").onclick = () => post("/sim/faults", { mode: "500" });
+$("btn-faultclear").onclick = () => post("/sim/faults", { mode: "ok", delayMs: 0 });
+
+function churnOnce(n) {
+  const churn = $("churn");
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement("div");
+    const s = document.createElement("span");
+    s.textContent = "Timing";
+    const b = document.createElement("button");
+    b.title = "Usage";
+    b.textContent = "Timing";
+    d.append(s, b);
+    churn.appendChild(d);
+  }
+}
+const churnRemove = () => { const c = $("churn"); c.replaceChildren(); };
+
+/* ── 推演套件 ── */
+const params = new URLSearchParams(location.search);
+
+async function fullSuite() {
+  install();
+  const T = face.__l10nTest;
+
+  // S1 键级覆盖
+  let ok1 = await waitFor(() => $("static-zone").querySelector('[data-t-key="toolbar.duration"]').textContent === "时长");
+  check("S1a", "键级覆盖：toolbar.duration → 时长", ok1);
+  check("S1b", "键级覆盖：turns → 轮次",
+    $("static-zone").querySelector('[data-t-key="toolbar.turns"]').textContent === "轮次");
+  check("S1c", "键级覆盖：expandCalls → 展开调用",
+    $("static-zone").querySelector('[data-t-key="toolbar.expandCalls"]').textContent === "展开调用");
+  check("S1d", "未覆盖键走官方链：workspace.add → 添加工作区",
+    locale.lookup("workspace", "workspace.add") === "添加工作区");
+
+  // S2 字面量（标签页标题）
+  const tabs = [...document.querySelectorAll(".tabTitle")].map((e) => e.textContent);
+  check("S2", "字面量：标签页标题全部替换",
+    JSON.stringify(tabs) === JSON.stringify(["系统提示词", "原始输出", "选项", "用量", "耗时", "差异", "摘要"]), tabs.join("/"));
+
+  // S3 模式（compaction 回执）
+  const ok3 = await waitFor(() => $("compactionText").textContent.includes("已压缩 12 条历史记录"));
+  check("S3", "模式：Compacted N history items → 已压缩 12 条历史记录（约 3.4K token）。", ok3,
+    $("compactionText").textContent);
+
+  // S4 chrome 作用域
+  check("S4a", "chrome：工具卡片 Read → 读取",
+    document.querySelector('[data-tool="read"]').textContent === "读取");
+  check("S4b", "chrome：普通段落里的 Read 不动",
+    $("plainPara").textContent.includes("Read"), $("plainPara").textContent);
+
+  // S5 用户气泡护栏
+  check("S5a", "用户气泡：用户文本 Options 原样", $("userText").textContent === "Options");
+  check("S5b", "用户气泡：内部按钮 title 不被改写", $("userBtn").getAttribute("title") === "System Prompt");
+  check("S5c", "用户气泡：内部按钮文本原样", $("userBtn").textContent === "Options");
+
+  // S6 代码块（含动态更新）
+  check("S6a", "代码块：初始 Options 原样", $("codeEl").textContent === "Options");
+  $("codeEl").textContent = "Summary"; // childList 变更（新文本节点）
+  await sleep(600); // 留足扫描窗口（后台节流时定时器 ≥1s，翻译本就不该发生）
+  check("S6b", "代码块：动态更新后的 Summary 原样", $("codeEl").textContent === "Summary");
+
+  // S7 contentEditable
+  $("ceEl").textContent = "Options";
+  await sleep(600);
+  check("S7", "contentEditable：用户输入原样", $("ceEl").textContent === "Options");
+
+  // S8 属性动态改写（官方更新 title → 再基准化重译）
+  const ok8a = await waitFor(() => $("tooltipBtn").getAttribute("title") === "打开图片", 8000);
+  check("S8a", "属性：tooltip Open image → 打开图片", ok8a);
+  $("tooltipBtn").setAttribute("title", "System Prompt"); // 模拟官方随后改写
+  const ok8b = await waitFor(() => $("tooltipBtn").getAttribute("title") === "系统提示词", 8000);
+  check("S8b", "属性：官方改写 title 后按新值重译（re-base）", ok8b, $("tooltipBtn").getAttribute("title"));
+
+  // S9 后端数据文案
+  check("S9a", "命令释义：Compact older conversation history → 压缩较早的对话历史",
+    $("cmdDesc").textContent === "压缩较早的对话历史");
+  check("S9b", "执行回执：Goal created → 已创建目标", $("goalReceipt").textContent === "已创建目标");
+  check("S9c", "权限预设描述替换",
+    $("permDesc").textContent.startsWith("可在工作区与获批的临时目录内写入"));
+
+  // S10 官方补译让位
+  const durSpan = () => $("static-zone").querySelector('[data-t-key="toolbar.duration"]');
+  OFFICIAL_DICTS.trajectory.zh["toolbar.duration"] = "官方补译时长";
+  locale.publish();
+  await waitFor(() => durSpan().textContent === "官方补译时长", 8000);
+  check("S10a", "官方补译含汉字 → 插件让位", durSpan().textContent === "官方补译时长", durSpan().textContent);
+  OFFICIAL_DICTS.trajectory.zh["toolbar.duration"] = "Duration";
+  locale.publish();
+  await waitFor(() => durSpan().textContent === "时长", 8000);
+  check("S10b", "官方仍是英文 → 插件词条恢复", durSpan().textContent === "时长", durSpan().textContent);
+
+  // S11 词典热更新（overlay 模拟改 dicts 文件）
+  await post("/sim/overlay", { literals: { "Brand New Button": "全新按钮" } });
+  await face.__l10nTest.loadDicts();
+  const scratch = $("scratch");
+  const freshBtn = document.createElement("button");
+  freshBtn.textContent = "Brand New Button";
+  scratch.appendChild(freshBtn);
+  const ok11 = await waitFor(() => freshBtn.textContent === "全新按钮", 8000);
+  check("S11", "词典热更新：新增词条无需重启/重装即生效", ok11, freshBtn.textContent);
+  await post("/sim/overlay/clear");
+  await face.__l10nTest.loadDicts();
+  const ok11b = await waitFor(() => freshBtn.textContent === "Brand New Button", 8000);
+  check("S11b", "词条移除后回退英文原件", ok11b, freshBtn.textContent);
+
+  // S12 内存稳定（churn：批量增删已翻译节点；条件驱动，对后台定时器节流免疫）
+  const b0 = T.stats();
+  let bMid = b0;
+  for (let i = 0; i < 12; i++) {
+    churnOnce(10);
+    const grew = await waitFor(() => T.stats().text >= b0.text + 20, 8000); // 10 div × 2 文本已翻译
+    churnRemove();
+    const shrunk = await waitFor(() => T.stats().text <= b0.text + 2 && T.stats().attrs <= b0.attrs + 1, 8000);
+    if (!grew || !shrunk) { churnRemove(); check("S12x", `churn 第 ${i} 轮未收敛`, false, `grew=${grew} shrunk=${shrunk}`); break; }
+    if (i === 6) bMid = T.stats();
+  }
+  await sleep(300);
+  const b1 = T.stats();
+  check("S12a", "内存：churn 240 节点后登记回到基线",
+    Math.abs(b1.text - b0.text) <= 2 && Math.abs(b1.attrs - b0.attrs) <= 1,
+    `text ${b0.text}→${bMid.text}→${b1.text}, attrs ${b0.attrs}→${bMid.attrs}→${b1.attrs}`);
+  check("S12b", "内存：中途不单调增长", Math.abs(bMid.text - b0.text) <= 6 && Math.abs(bMid.attrs - b0.attrs) <= 3);
+
+  // S13 卸载逐字节还原（先把推演脚本自己在 S6/S7 改过的内容恢复原状，
+  // 使快照基线只反映插件经手的部分）
+  $("codeEl").textContent = "Options";
+  $("ceEl").textContent = "Tools";
+  await sleep(400);
+  uninstall();
+  await sleep(60);
+  check("S13a", "卸载：稳定区与安装前逐字节一致", $("stable-zone").innerHTML === window.__simStablePreSnap);
+  check("S13a2", "卸载：被官方改写过的 tooltip 回到官方最新值（而非旧快照）",
+    $("tooltipBtn").getAttribute("title") === "System Prompt", $("tooltipBtn").getAttribute("title"));
+  check("S13b", "卸载：查找链===官方原函数（引用同一）", locale.lookup === OFFICIAL_LOOKUP_REF);
+  check("S13c", "卸载：localStorage 缓存已清除", localStorage.getItem("dsh-l10n-zh:dicts:v1") === null);
+  const afterEn = [...document.querySelectorAll(".tabTitle")].map((e) => e.textContent).join("/");
+  check("S13d", "卸载：标签页回到英文", afterEn === "System Prompt/Raw Output/Options/Usage/Timing/Diff/Summary", afterEn);
+
+  // 重装恢复现场
+  install();
+  const ok13e = await waitFor(() => $("static-zone").querySelector('[data-t-key="toolbar.duration"]').textContent === "时长", 8000);
+  check("S13e", "重装：翻译恢复", ok13e);
+
+  // S16 应用内开关（设置 → 通用 → 语言行左侧）
+  $("btn-open-settings").click();
+  const ok16a = await waitFor(() => document.querySelector("[data-dsh-l10n-zh-toggle]"), 8000);
+  const tog = document.querySelector("[data-dsh-l10n-zh-toggle]");
+  const simMenu = document.querySelector('#settingsHost button[aria-haspopup="menu"]');
+  check("S16a", "开关出现在设置语言行", ok16a && !!tog);
+  check("S16b", "开关位于语言选择药丸左侧", !!tog && !!simMenu && simMenu.closest("span").previousElementSibling === tog);
+  check("S16c", "默认开启态（借官方药丸样式）", !!tog && tog.textContent === "汉化：开" && tog.className === "hVGvvW_selector");
+  tog.click();
+  const ok16d = await waitFor(() => durSpan().textContent === "Duration", 8000);
+  check("S16d", "关=立即还原官方英文", ok16d, durSpan().textContent);
+  check("S16e", "标签切换为汉化：关", tog.textContent === "汉化：关" && tog.getAttribute("aria-pressed") === "false");
+  tog.click();
+  const ok16f = await waitFor(() => durSpan().textContent === "时长", 8000);
+  check("S16f", "开=翻译恢复", ok16f, durSpan().textContent);
+  $("btn-close-settings").click();
+  await sleep(150);
+  $("btn-open-settings").click();
+  const ok16g = await waitFor(() => {
+    const t = document.querySelector("[data-dsh-l10n-zh-toggle]");
+    return t && t.textContent === "汉化：开";
+  }, 8000);
+  check("S16g", "重新打开设置后开关自动回归", ok16g);
+  $("btn-close-settings").click();
+
+  finishSuite();
+}
+
+/* 首屏缓存相位：?phase=cache（配合服务器一次性 delaydicts）—— 页面加载时词典被扣住 2.5s */
+async function cacheSuite() {
+  let dictsFetchDone = false;
+  const origFetch = window.fetch.bind(window);
+  window.fetch = async (...args) => {
+    const res = await origFetch(...args);
+    if (String(args[0]).includes("/api/l10n-zh/dicts")) dictsFetchDone = true;
+    return res;
+  };
+  install(); // apply 内同步使用 localStorage 缓存 + publish 重渲染
+  const dur = () => $("static-zone").querySelector('[data-t-key="toolbar.duration"]').textContent;
+  await sleep(400); // fetch 仍被服务器扣住（2.5s），此时只可能有缓存
+  check("S15a", "首屏缓存：词典未到达时键级已是中文", dur() === "时长", dur());
+  check("S15b", "首屏缓存：此刻网络词典确实尚未返回", !dictsFetchDone);
+  const tab = document.querySelector(".tabTitle");
+  check("S15c", "首屏缓存：字面量层同步生效（System Prompt → 系统提示词）", tab.textContent === "系统提示词", tab.textContent);
+  const ok15 = await waitFor(() => dictsFetchDone, 6000);
+  check("S15d", "首屏缓存：网络词典最终到达并校验", ok15 && dur() === "时长");
+  await post("/sim/faults", { mode: "ok", delayMs: 0 });
+  finishSuite();
+}
+
+/* 敌意环境相位：?hostile=1 —— 官方 locale 服务契约破坏 */
+function hostileSuite() {
+  const brokenLocale = { getLocale: () => ({ active: "zh" }), subscribe: () => () => {} }; // 无 lookup
+  const ctx = { locale: brokenLocale, logger: simLogger, effect(fn) { const d = fn(); if (typeof d === "function") disposers.push(d); return d; } };
+  let threw = null;
+  try { face = window.__pluginReg.factory(); face.apply(ctx); } catch (e) { threw = e; }
+  check("S14a", "敌意环境：apply 不抛错", threw === null, threw && String(threw));
+  check("S14b", "敌意环境：插件惰性（标签页保持英文）",
+    document.querySelector(".tabTitle").textContent === "System Prompt");
+  check("S14c", "敌意环境：仅告警日志、无 error",
+    consoleErrors.length === 0, consoleErrors.join(" | "));
+  finishSuite();
+}
+
+/* ── 设置弹窗仿真（结构对齐 dsh-client-locale LanguageRow：row > rowText(title) + Menu 药丸） ── */
+function buildSettingsDialog() {
+  const dlg = document.createElement("div");
+  dlg.setAttribute("role", "dialog");
+  dlg.setAttribute("aria-modal", "true");
+  const row = document.createElement("div");
+  row.className = "hVGvvW_row";
+  const rowText = document.createElement("div");
+  rowText.className = "hVGvvW_rowText";
+  const title = document.createElement("div");
+  title.className = "hVGvvW_title";
+  title.textContent = locale.lookup("settings.locale", "language.title");
+  rowText.appendChild(title);
+  const menuWrap = document.createElement("span");
+  menuWrap.className = "_root_19372_1";
+  const menuBtn = document.createElement("button");
+  menuBtn.type = "button";
+  menuBtn.className = "hVGvvW_selector";
+  menuBtn.setAttribute("aria-haspopup", "menu");
+  menuBtn.setAttribute("aria-expanded", "false");
+  menuBtn.textContent = "中文";
+  menuWrap.appendChild(menuBtn);
+  row.append(rowText, menuWrap);
+  dlg.appendChild(row);
+  return dlg;
+}
+$("btn-open-settings").onclick = () => { $("settingsHost").replaceChildren(buildSettingsDialog()); };
+$("btn-close-settings").onclick = () => { $("settingsHost").replaceChildren(); };
+
+function finishSuite() {
+  const done = document.createElement("div");
+  done.textContent = `=== SUITE DONE · ${passCount} 通过 / ${failCount} 失败 · console.error ${consoleErrors.length} 条 ===`;
+  done.style.fontWeight = "bold";
+  resultsEl.appendChild(done);
+  document.title = `SIM-DONE ${passCount}✓/${failCount}✗`;
+}
+
+/* 安装前快照（卸载还原的对照基准）。stable-zone 排除了会被"模拟官方改写"的
+   tooltip 元素——它的还原语义是回到官方最新值（S13a2 单独断言）。 */
+window.__simStablePreSnap = $("stable-zone").innerHTML;
+
+if (params.get("phase") === "cache") cacheSuite();
+else if (params.get("hostile") === "1") hostileSuite();
+else fullSuite();
+
+$("btn-rerun").onclick = () => location.reload();
+</script>
+</body>
+</html>

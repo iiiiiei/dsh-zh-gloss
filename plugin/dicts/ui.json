@@ -1,0 +1,28 @@
+{
+  "$comment": "第一层词典：键级覆盖。结构 ui[官方命名空间][键] = 中文。仅在 UI 语言为中文时生效，未列出的键原样走官方查找链。命名空间来源见 reports/value-gaps.txt 与 docs/DICT-GUIDE.md。",
+  "ui": {
+    "trajectory": {
+      "toolbar.duration": "时长",
+      "toolbar.useActualDuration": "使用实际时长",
+      "toolbar.useEqualWidth": "操作等宽显示",
+      "toolbar.turns": "轮次",
+      "toolbar.expandTurns": "展开轮次",
+      "toolbar.collapseTurns": "收起轮次",
+      "toolbar.calls": "调用",
+      "toolbar.expandCalls": "展开调用",
+      "toolbar.collapseCalls": "收起调用"
+    },
+    "cordis": {
+      "panel.trigger": "Cordis 插件",
+      "panel.runningCount": "{count} 个运行中",
+      "body.hostCode": "宿主",
+      "body.clientCode": "客户端"
+    },
+    "model": {
+      "effort.providerDefault": "默认"
+    },
+    "reference": {
+      "candidate.session": "会话"
+    }
+  }
+}

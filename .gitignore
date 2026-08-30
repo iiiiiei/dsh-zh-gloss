@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+
+# 打包产物（发布时由 CI 或 pack.sh 生成，不入库）
+dist/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 本地环境
+.env
+.env.*

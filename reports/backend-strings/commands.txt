@@ -1,0 +1,57 @@
+dsh-command-compact	/compact	Compact older conversation history
+dsh-command-compact	<receipt>	Usage: /compact (no arguments)
+dsh-command-compact	<receipt>	Compaction cancelled.
+dsh-command-compact	<receipt>	Compaction finished, but the session could not be saved.
+dsh-command-compact	<receipt>	No compactable history yet.
+dsh-command-compact	<receipt>	Compaction cancelled.
+dsh-command-compact	<receipt>	Compact older conversation history
+dsh-command-goal	/goal	set or view the goal for a long-running task
+dsh-command-goal	<receipt>	Usage: /goal [<objective>|clear|edit <objective>|pause|resume]
+dsh-command-goal	<receipt>	Reference images for the goal objective.
+dsh-command-goal	<receipt>	Goal created
+dsh-command-goal	<receipt>	Goal created
+dsh-command-goal	<receipt>	Goal updated
+dsh-command-goal	<receipt>	Goal paused
+dsh-command-goal	<receipt>	Goal resumed
+dsh-command-goal	<receipt>	No goal to clear.
+dsh-command-goal	<receipt>	Goal cleared.
+dsh-command-goal	<receipt>	The goal command is not valid for the current state. Run /goal to view available commands.
+dsh-command-feedback	/feedback	record feedback about this session
+dsh-command-feedback	<receipt>	Usage: /feedback <text>
+dsh-command-feedback	<receipt>	Session sharing is enabled.
+dsh-command-feedback	<receipt>	Session sharing is disabled.
+dsh-command-feedback	<receipt>	Session sharing is not configured.
+dsh-plan-mode	/plan	Enter or leave plan mode
+dsh-plan-mode	<receipt>	Keep planning
+dsh-plan-mode	<receipt>	PlanModeConfig needs a string `section`
+dsh-plan-mode	<receipt>	PlanModeConfig needs a non-empty `section`
+dsh-plan-mode	<receipt>	Enter or leave plan mode
+dsh-plan-mode	<receipt>	Image attachments cannot accompany /plan off.
+dsh-plan-mode	<receipt>	Plan mode off.
+dsh-plan-mode	<receipt>	Leaving plan mode (applies from the next step).
+dsh-plan-mode	<receipt>	Plan mode entry cancelled.
+dsh-plan-mode	<receipt>	Leaving plan mode (applies from the next step).
+dsh-plan-mode	<receipt>	Plan mode is already inactive.
+dsh-plan-mode	<receipt>	Plan mode on. Use /plan off to leave.
+dsh-plan-mode	<receipt>	Entering plan mode (applies from the next step). Use /plan off to leave.
+dsh-plan-mode	<receipt>	The complete plan, as markdown, starting with a # heading that names it.
+dsh-plan-mode	<receipt>	Plan approved — plan mode exited; carry out the plan starting with your next step.
+dsh-plan-mode	<receipt>	Plan review
+dsh-plan-mode	<receipt>	Approve this plan and leave plan mode?
+dsh-plan-mode	<receipt>	Leave plan mode; the plan is carried out from the next step.
+dsh-plan-mode	<receipt>	Stay in plan mode; feedback goes back to the model.
+dsh-plan-mode	<receipt>	ASK_CANCELLED
+dsh-plan-mode	<receipt>	The user chose to keep planning; revise the plan and present it again.
+dsh-plan-mode	<receipt>	Plan review
+dsh-plan-mode	<receipt>	The user switched this session to plan mode.
+dsh-plan-mode	<receipt>	The user switched this session back to the default mode.
+dsh-permission-presets	/workspace-write	Write inside the workspace and permitted temporary directories; wider retries require approval.
+dsh-permission-presets	/danger-full-access	Full file access without approval prompts.
+dsh-permission-presets	/permission	Switch the permission preset (sandbox mode + approval policy)
+dsh-permission-presets	<receipt>	Full file access without approval prompts.
+dsh-permission-presets	<receipt>	Switch the permission preset (sandbox mode + approval policy)
+dsh-permission-presets	<receipt>	Current sandbox and approval settings do not match a preset.
+dsh-session-log-export	/export	Download this Session log as a ZIP archive
+dsh-session-log-export	<receipt>	Session log download requested.
+dsh-session-log-export	<receipt>	Download this Session log as a ZIP archive
+dsh-session-log-export	<receipt>	The Web /export command does not accept a path.
