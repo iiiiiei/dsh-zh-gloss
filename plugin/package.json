@@ -1,7 +1,7 @@
 {
   "name": "dsh-l10n-zh",
   "description": "DSH Web UI 中文汉化补全（热插拔）：键级字典覆盖 + 字面量精确映射双层翻译",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "private": true,
   "type": "module",
   "main": "lib/index.js",

@@ -36,7 +36,7 @@ const PLUGIN_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DICTS_DIR = process.env.DSH_L10N_DICTS_DIR || join(PLUGIN_ROOT, "dicts");
 
 /** 插件针对该官方版本完成过覆盖验证；官方升级后请更新并重跑 tools/scan-locale-gaps.mjs。 */
-const VERIFIED_BASELINE = "0.1.2-alpha.5";
+const VERIFIED_BASELINE = "0.1.2-rc.1";
 
 /**
  * 读官方 dsh 版本号（仅用于 /status 漂移提示；读不到时返回 null，不影响路由）。

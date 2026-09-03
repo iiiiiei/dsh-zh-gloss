@@ -115,25 +115,33 @@ window.__ModuleLoader__.load({
 		function installLookupPatch() {
 			// 注意：不使用 .bind() —— 卸载还原要求把**同一个函数引用**装回，
 			// 否则任何依赖身份比较的消费方都会察觉差异。
+			// 签名必须透传：官方 lookup 的参数随版本演进（rc.1 起为
+			// (ns, key, chain)，chain 是已解析的 fallback 链——丢失会让官方
+			// lookup 内部遍历 undefined 直接抛错，把渲染槽炸成 data-slot-error
+			// 全页白屏）。固定 (ns, key) 转发只在 alpha.5 及以前安全。
 			const original = localeRef.lookup;
-			const patched = function (ns, key) {
+			const patched = function (ns, key, ...rest) {
 				if (state.active === TARGET_LOCALE) {
 					const table = state.ui[ns];
 					if (table && hasOwn(table, key)) {
 						const value = table[key];
 						if (typeof value === "string") {
-							const official = original.call(this, ns, key);
+							const official = original.call(this, ns, key, ...rest);
 							if (typeof official === "string" && CJK_RE.test(official)) return official;
 							return value;
 						}
 					}
 				}
-				return original.call(this, ns, key);
+				return original.call(this, ns, key, ...rest);
 			};
 			localeRef.lookup = patched;
 			/** disposer：停用时把官方查找链原样装回。 */
 			return () => {
-				if (localeRef && localeRef.lookup === patched) localeRef.lookup = original;
+				if (localeRef && localeRef.lookup === patched) {
+					// rc.1 起 lookup 是原型方法：删实例自有属性恢复原型链，等价且更干净
+					if (Object.getPrototypeOf(localeRef).lookup === original) delete localeRef.lookup;
+					else localeRef.lookup = original;
+				}
 			};
 		}
 
@@ -542,11 +550,15 @@ window.__ModuleLoader__.load({
 			if (dialog.querySelector(OWN_UI_SELECTOR)) { debugLog("toggle: already"); return; }
 			let titleText = null;
 			try {
-				if (localeRef && typeof localeRef.lookup === "function") {
-					titleText = norm(localeRef.lookup("settings.locale", "language.title"));
+				// 必须走 translate（内部自解析 fallback 链）；rc.1 起裸调
+				// lookup(ns, key) 缺 chain 参数会直接抛 "chain is not iterable"。
+				if (localeRef && typeof localeRef.translate === "function") {
+					titleText = norm(localeRef.translate("settings.locale", "language.title"));
+				} else if (localeRef && typeof localeRef.lookup === "function") {
+					titleText = norm(localeRef.lookup("settings.locale", "language.title", ["zh", "en"]));
 				}
 			} catch (error) { debugLog("toggle: lookup threw", String(error)); return; }
-			if (!titleText) { debugLog("toggle: titleText empty"); return; }
+			if (!titleText || titleText === "language.title") { debugLog("toggle: titleText invalid"); return; }
 			debugLog("toggle: titleText=", JSON.stringify(titleText));
 			const candidates = dialog.querySelectorAll("div,span,h1,h2,h3,h4,h5");
 			let leafHits = 0;
