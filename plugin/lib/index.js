@@ -36,27 +36,31 @@ const PLUGIN_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DICTS_DIR = process.env.DSH_L10N_DICTS_DIR || join(PLUGIN_ROOT, "dicts");
 
 /** 插件针对该官方版本完成过覆盖验证；官方升级后请更新并重跑 tools/scan-locale-gaps.mjs。 */
-const VERIFIED_BASELINE = "0.1.1-rc.2";
+const VERIFIED_BASELINE = "0.1.2-alpha.5";
 
 /**
  * 读官方 dsh 版本号（仅用于 /status 漂移提示；读不到时返回 null，不影响路由）。
- * 先 realpath 解开 pnpm/yarn 符号链接，再从真实的 node_modules 根向上探测——
- * 直接用未解链的 PLUGIN_ROOT/.. 在符号链接安装形态下会指向错误目录。
+ * 先 realpath 解开 pnpm/yarn 符号链接，再从真实的 node_modules 根向上探测：
+ * 优先 @deepseek-ai/dsh 主包；alpha 系部署形态内层常只有子包，则取同批发布的
+ * dsh-client-locale / dsh-web-app / dsh-agent 版本（同一流水线，版本一致）。
  */
 async function officialDshVersion() {
   let root = PLUGIN_ROOT;
   try {
     root = dirname(await realpath(join(PLUGIN_ROOT, "package.json")));
   } catch { /* 无 package.json 或不支持：按原样探测 */ }
-  const candidates = [
-    join(root, "..", "@deepseek-ai", "dsh", "package.json"),
-    join(root, "..", "..", "@deepseek-ai", "dsh", "package.json"),
+  const scopes = [
+    join(root, "..", "@deepseek-ai"),
+    join(root, "..", "..", "@deepseek-ai"),
   ];
-  for (const path of candidates) {
-    try {
-      const doc = JSON.parse(await readFile(path, "utf8"));
-      if (typeof doc.version === "string") return doc.version;
-    } catch { /* 布局不同/未安装：忽略，尝试下一个 */ }
+  const probes = ["dsh", "dsh-client-locale", "dsh-web-app", "dsh-agent"];
+  for (const scope of scopes) {
+    for (const probe of probes) {
+      try {
+        const doc = JSON.parse(await readFile(join(scope, probe, "package.json"), "utf8"));
+        if (typeof doc.version === "string") return doc.version;
+      } catch { /* 布局不同/未安装：尝试下一个 */ }
+    }
   }
   return null;
 }

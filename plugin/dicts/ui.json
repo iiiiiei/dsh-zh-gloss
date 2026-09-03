@@ -23,6 +23,12 @@
     },
     "reference": {
       "candidate.session": "会话"
+    },
+    "chat": {
+      "settings.transcript.normal": "常规",
+      "settings.transcript.compact": "紧凑",
+      "settings.enter.queue": "排队",
+      "settings.enter.steer": "转向"
     }
   }
 }

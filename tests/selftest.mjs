@@ -614,7 +614,7 @@ ok(typeof routes["/api/l10n-zh/dicts"] === "function", "A1 · dicts 路由已注
   eq(captured.literalCount, 1, "A4 · 计数正确");
   eq(captured.patternCount, 2, "A4 · patterns 计数正确");
   eq(captured.pluginInfoCount, 1, "A4 · pluginInfo 计数正确");
-  eq(captured.pluginBaseline, "0.1.1-rc.2", "A5 · 回显插件验证基线");
+  eq(captured.pluginBaseline, "0.1.2-alpha.5", "A5 · 回显插件验证基线");
   eq(captured.officialDshVersion, null, "A5 · 探测不到官方版本时回显 null");
   eq(captured.drift, null, "A5 · 探测不到时 drift 为 null");
 }
