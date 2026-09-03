@@ -1,4 +1,4 @@
-# dsh-l10n-zh — DeepSeek Harness Web UI 中文汉化补全插件
+# dsh-zh-gloss — DeepSeek Harness Web UI 中文汉化释义插件
 
 > 热插拔 · 零改动官方源码 · 卸载逐字节还原
 
@@ -70,6 +70,8 @@
 | [`reports/directory-picker-findings.md`](reports/directory-picker-findings.md) | "访达面板"专项调研（系统级边界） |
 | [`reports/backend-strings/findings.md`](reports/backend-strings/findings.md) | 后端下发英文文案采集 |
 | [`reports/audit-2026-08-28.md`](reports/audit-2026-08-28.md) | 全量审计报告与修复记录 |
+
+> 仓库命名：dsh-zh-gloss（gloss=释义）；插件包名/Loader id 仍为 dsh-l10n-zh / l10n-zh（历史沿革，改动是破坏性迁移故保留）。
 
 ## 友情链接
 
