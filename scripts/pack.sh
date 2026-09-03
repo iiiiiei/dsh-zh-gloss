@@ -43,4 +43,4 @@ tar -czf "dist/dsh-l10n-zh-${VERSION}.tar.gz" -C dist dsh-l10n-zh
 
 echo
 echo "完成：dist/dsh-l10n-zh/ 与 dist/dsh-l10n-zh-${VERSION}.tar.gz"
-echo "部署步骤见 wiki/01-一键安装.md"
+echo "部署步骤见 Wiki「01 · 一键安装」"
